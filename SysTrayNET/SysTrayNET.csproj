@@ -9,6 +9,7 @@
     <EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <ApplicationIcon>Resources\Picture\ApplicationIcon.ico</ApplicationIcon>
+    <UseWindowsForms>True</UseWindowsForms>
   </PropertyGroup>
 
   <ItemGroup>

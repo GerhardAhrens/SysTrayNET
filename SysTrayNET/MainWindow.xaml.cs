@@ -50,6 +50,10 @@ namespace SysTrayNET
             }
         }
 
+        private void icon_Click(Object sender, EventArgs e)
+        {
+            MessageBox.Show("Thanks for clicking me");
+        }
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
