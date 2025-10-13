@@ -20,11 +20,6 @@
         <BitmapImage UriSource="pack://application:,,,/Resources/Picture/ApplicationIcon.png" />
     </Window.Icon>
 
-    <Window.CommandBindings>
-        <CommandBinding Command="local:ApplicationCommands.Quit" Executed="QuitCommandOnExecuted" />
-    </Window.CommandBindings>
-
-
     <Grid x:Name="gridMain">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />

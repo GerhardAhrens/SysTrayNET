@@ -65,6 +65,10 @@ namespace SysTrayNET
             Environment.Exit(0);
         }
 
+        private void OpenCommandOnExecuted(object sender, ExecutedRoutedEventArgs e)
+        {
+        }
+
         #region INotifyPropertyChanged implementierung
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = "")
         {
@@ -78,17 +82,5 @@ namespace SysTrayNET
             handler(this, e);
         }
         #endregion INotifyPropertyChanged implementierung
-    }
-
-    public static class ApplicationCommands
-    {
-        public static RoutedCommand Quit { get; }
-
-        static ApplicationCommands()
-        {
-            var inputGestures = new InputGestureCollection();
-            inputGestures.Add(new KeyGesture(Key.F4, ModifierKeys.Alt));
-            Quit = new RoutedUICommand("Quit", "Quit", typeof(ApplicationCommands), inputGestures);
-        }
     }
 }
