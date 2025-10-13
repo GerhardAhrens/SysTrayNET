@@ -20,16 +20,26 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Remove="Resources\Picture\TrayIcon.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="Resources\Picture\ApplicationIcon.ico" />
   </ItemGroup>
 
   <ItemGroup>
     <Resource Include="Resources\Picture\ApplicationIcon.ico" />
     <Resource Include="Resources\Picture\ApplicationIcon.png" />
+    <Resource Include="Resources\Picture\TrayIcon.ico" />
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Behaviors\" />
     <Folder Include="Resources\Style\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
   </ItemGroup>
 
 </Project>

@@ -18,6 +18,7 @@ namespace SysTrayNET
     using System.ComponentModel;
     using System.Runtime.CompilerServices;
     using System.Windows;
+    using System.Windows.Input;
 
     /// <summary>
     /// Interaction logic for MainWindow.xaml
@@ -59,6 +60,11 @@ namespace SysTrayNET
         {
         }
 
+        private void QuitCommandOnExecuted(object sender, ExecutedRoutedEventArgs e)
+        {
+            Environment.Exit(0);
+        }
+
         #region INotifyPropertyChanged implementierung
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = "")
         {
@@ -72,5 +78,17 @@ namespace SysTrayNET
             handler(this, e);
         }
         #endregion INotifyPropertyChanged implementierung
+    }
+
+    public static class ApplicationCommands
+    {
+        public static RoutedCommand Quit { get; }
+
+        static ApplicationCommands()
+        {
+            var inputGestures = new InputGestureCollection();
+            inputGestures.Add(new KeyGesture(Key.F4, ModifierKeys.Alt));
+            Quit = new RoutedUICommand("Quit", "Quit", typeof(ApplicationCommands), inputGestures);
+        }
     }
 }
