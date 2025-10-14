@@ -1,66 +1,70 @@
 ﻿namespace SysTrayNET.Behaviors
 {
     using Microsoft.Xaml.Behaviors;
-
+    using System;
+    using System.ComponentModel;
+    using System.Drawing;
     using System.Windows;
+    using System.Windows.Forms;
 
-    public class NotifyTrayIconBehavior : Behavior<Window>
+    public class NotifyTrayIconBehavior : Behavior<Window>, IDisposable
     {
         private NotifyIcon notifyTrayIcon;
+        private bool disposedValue;
 
         protected override void OnAttached()
         {
             base.OnAttached();
-            AssociatedObject.Loaded += AssociatedObject_Loaded;
-            AssociatedObject.Closing += AssociatedObject_Closing;
-            AssociatedObject.StateChanged += AssociatedObject_StateChanged;
+            this.AssociatedObject.Loaded += AssociatedObject_Loaded;
+            this.AssociatedObject.Closing += AssociatedObject_Closing;
+            this.AssociatedObject.StateChanged += AssociatedObject_StateChanged;
         }
 
         protected override void OnDetaching()
         {
             base.OnDetaching();
-            AssociatedObject.Loaded -= AssociatedObject_Loaded;
-            AssociatedObject.Closing -= AssociatedObject_Closing;
-            AssociatedObject.StateChanged -= AssociatedObject_StateChanged;
+
+            this.AssociatedObject.Loaded -= AssociatedObject_Loaded;
+            this.AssociatedObject.Closing -= AssociatedObject_Closing;
+            this.AssociatedObject.StateChanged -= AssociatedObject_StateChanged;
+            this.Dispose();
         }
 
         private void AssociatedObject_Loaded(object sender, RoutedEventArgs e)
         {
-            InitializeNotifyIcon();
+            this.InitializeNotifyIcon();
         }
 
-        private void AssociatedObject_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        private void AssociatedObject_Closing(object sender, CancelEventArgs e)
         {
             e.Cancel = true;
-            AssociatedObject.Hide();
-            ShowNotificationInTray(string.Empty, "Dieser Hinweis zeigt an, dass Sie über das Symbol in der Taskleiste auf Ihre Anwendung zugreifen können.");
+            this.AssociatedObject.Hide();
+
+            this.ShowNotificationInTray(string.Empty, "Dieser Hinweis zeigt an, dass Sie über das Symbol in der Taskleiste auf Ihre Anwendung zugreifen können.");
         }
 
         private void AssociatedObject_StateChanged(object sender, EventArgs e)
         {
-            if (AssociatedObject.WindowState == WindowState.Minimized)
+            if (this.AssociatedObject.WindowState == WindowState.Minimized)
             {
-                AssociatedObject.ShowInTaskbar = false;
-                ShowNotificationInTray(string.Empty, "Dieser Hinweis zeigt an, dass Sie über das Symbol in der Taskleiste auf Ihre Anwendung zugreifen können.");
+                this.AssociatedObject.ShowInTaskbar = false;
+                this.ShowNotificationInTray(string.Empty, "Dieser Hinweis zeigt an, dass Sie über das Symbol in der Taskleiste auf Ihre Anwendung zugreifen können.");
             }
             else
             {
-                AssociatedObject.ShowInTaskbar = true;
+                this.AssociatedObject.ShowInTaskbar = true;
             }
         }
 
         private void InitializeNotifyIcon()
         {
-            // Initialize NotifyIcon
             this.notifyTrayIcon = new NotifyIcon
             {
-                /* Geben Sie das Symbol an, das im Infobereich angezeigt werden soll. */
                 Icon = GetIconFromImageSource(new Uri("pack://application:,,,/SysTrayNET;component/Resources/Picture/TrayIcon.ico")),
                 Visible = true,
                 ContextMenuStrip = new ContextMenuStrip()
             };
 
-            /* Fügen Sie ein Kontextmenü zum NotifyIcon hinzu. */
             ContextMenuStrip contextMenu = new();
             ToolStripMenuItem exitNotifyIconMenuItem = new()
             {
@@ -70,7 +74,6 @@
             ToolStripMenuItem openNotifyIconMenuItem = new()
             {
                 Text = "Dialog wiederherstellen",
-                
             };
 
             WeakEventManager<ToolStripMenuItem, EventArgs>.AddHandler(openNotifyIconMenuItem, "Click", this.OpenMenuItem_Click);
@@ -83,37 +86,53 @@
 
         private void ExitMenuItem_Click(object sender, EventArgs e)
         {
-            // Perform cleanup and exit the application
             this.notifyTrayIcon?.Dispose();
             Environment.Exit(0);
         }
 
         private void OpenMenuItem_Click(object sender, EventArgs e)
         {
-            AssociatedObject.Show();
-            AssociatedObject.WindowState = WindowState.Normal;
-            AssociatedObject.Activate();
+            this.AssociatedObject.Show();
+            this.AssociatedObject.WindowState = WindowState.Normal;
+            this.AssociatedObject.Activate();
         }
 
         private void ShowNotificationInTray(string title, string message)
         {
-            /* Um einen Balloon-Tip anzuzeigen, verwenden Sie die Funktion notifyTrayIcon und geben Sie die 
-             * Dauer (2000 Millisekunden), den Titel, die Meldung und den Symboltyp (ToolTipIcon.Info) an.*/
             this.notifyTrayIcon.ShowBalloonTip(2000, title, message, ToolTipIcon.Info);
-            WeakEventManager<NotifyIcon, EventArgs>.AddHandler(notifyTrayIcon, "DoubleClick", this.NotifyTrayIcon_DoubleClick);
+            WeakEventManager<NotifyIcon, EventArgs>.AddHandler(this.notifyTrayIcon, "DoubleClick", this.NotifyTrayIcon_DoubleClick);
         }
 
         private void NotifyTrayIcon_DoubleClick(object sender, EventArgs e)
         {
-            AssociatedObject.Show();
-            AssociatedObject.WindowState = WindowState.Normal;
-            AssociatedObject.Activate();
+            this.AssociatedObject.Show();
+            this.AssociatedObject.WindowState = WindowState.Normal;
+            this.AssociatedObject.Activate();
         }
 
         private static Icon GetIconFromImageSource(Uri uri)
         {
             using var stream = System.Windows.Application.GetResourceStream(uri)?.Stream;
             return stream != null ? new Icon(stream) : null;
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (this.disposedValue == false)
+            {
+                if (disposing == true)
+                {
+                    this.notifyTrayIcon?.Dispose();
+                }
+
+                this.disposedValue = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
 }

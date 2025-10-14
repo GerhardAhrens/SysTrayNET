@@ -19,6 +19,9 @@ namespace SysTrayNET
     using System.Runtime.CompilerServices;
     using System.Windows;
     using System.Windows.Input;
+    using System.Windows.Interop;
+
+    using SysTrayNET.Core;
 
     /// <summary>
     /// Interaction logic for MainWindow.xaml
@@ -26,6 +29,8 @@ namespace SysTrayNET
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
+        private HotKeyHost HotKeys { get; set; }
+
 
         public MainWindow()
         {
@@ -51,22 +56,11 @@ namespace SysTrayNET
             }
         }
 
-        private void icon_Click(Object sender, EventArgs e)
-        {
-            MessageBox.Show("Thanks for clicking me");
-        }
-
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
-        }
-
-        private void QuitCommandOnExecuted(object sender, ExecutedRoutedEventArgs e)
-        {
-            Environment.Exit(0);
-        }
-
-        private void OpenCommandOnExecuted(object sender, ExecutedRoutedEventArgs e)
-        {
+            this.HotKeys = new HotKeyHost((HwndSource)HwndSource.FromVisual(App.Current.MainWindow));
+            this.HotKeys.AddHotKey(new HotKeyToApplicationExit("ApplicationExit", Key.F4, ModifierKeys.Alt|ModifierKeys.Control));
+            this.HotKeys.AddHotKey(new HotKeyToApplicationOpen("ApplicationOpen", Key.W, ModifierKeys.Alt | ModifierKeys.Control, this));
         }
 
         #region INotifyPropertyChanged implementierung
