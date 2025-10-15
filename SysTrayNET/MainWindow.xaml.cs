@@ -17,6 +17,7 @@ namespace SysTrayNET
 {
     using System.ComponentModel;
     using System.Runtime.CompilerServices;
+    using System.Runtime.InteropServices;
     using System.Windows;
     using System.Windows.Input;
     using System.Windows.Interop;
@@ -61,6 +62,7 @@ namespace SysTrayNET
             this.HotKeys = new HotKeyHost((HwndSource)HwndSource.FromVisual(App.Current.MainWindow));
             this.HotKeys.AddHotKey(new HotKeyToApplicationExit("ApplicationExit", Key.F4, ModifierKeys.Alt|ModifierKeys.Control));
             this.HotKeys.AddHotKey(new HotKeyToApplicationOpen("ApplicationOpen", Key.W, ModifierKeys.Alt | ModifierKeys.Control, this));
+            this.HotKeys.AddHotKey(new HotKeyToSendKey("HotKeyToSendKey", Key.D1, ModifierKeys.Alt | ModifierKeys.Control));
         }
 
         #region INotifyPropertyChanged implementierung

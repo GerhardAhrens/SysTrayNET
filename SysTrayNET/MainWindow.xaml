@@ -33,8 +33,14 @@
             Grid.Column="0"
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
-            FontSize="24"
-            Text="WPF Window im Systray" />
+            FontSize="24">
+            <Run Text="WPF Window im Systray" />
+            <LineBreak />
+            <LineBreak />
+            <Run Text="Ctrl-Alt F4 (Beenden)" />
+            <LineBreak />
+            <Run Text="Ctrl-Alt W (Dialog öffnen)" />
+        </TextBlock>
 
     </Grid>
 </Window>

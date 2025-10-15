@@ -1,7 +1,7 @@
 //-----------------------------------------------------------------------
-// <copyright file="HotKeyToApplicationOpen.cs" company="Lifeprojects.de">
-//     Class: HotKeyToApplicationOpen
-//     Copyright © Lifeprojects.de 2025
+// <copyright file="HotKeyToSendKey.cs" company="Lifeprojects.de">
+//     Class: HotKeyToSendKey
+//     Copyright © Lifeprojects.de 2025 
 // </copyright>
 //
 // <Framework>4.8</Framework>
@@ -18,24 +18,27 @@
 namespace SysTrayNET.Core
 {
     using System;
+    using System.Diagnostics;
+    using System.Runtime.InteropServices;
     using System.Runtime.Serialization;
     using System.Windows;
     using System.Windows.Input;
 
+    using static System.Runtime.CompilerServices.RuntimeHelpers;
+
     [Serializable]
-    public class HotKeyToApplicationOpen : HotKey
+    public class HotKeyToSendKey : HotKey
     {
         private string name = string.Empty;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="HotKeyToMessageBox"/> class.
         /// </summary>
-        public HotKeyToApplicationOpen(string name, Key key, ModifierKeys modifiers, Window window, bool enabled = true) : base(key, modifiers, enabled)
+        public HotKeyToSendKey(string name, Key key, ModifierKeys modifiers, bool enabled = true) : base(key, modifiers, enabled)
         {
             this.Name = name;
             this.PressKey = key;
             this.ModifierKeys = modifiers;
-            this.Window = window;
         }
 
         public string Name
@@ -55,15 +58,33 @@ namespace SysTrayNET.Core
 
         private Key PressKey { get; set; }
 
-        private Window Window { get; set; }
-
         protected override void OnHotKeyPress()
         {
             base.OnHotKeyPress();
 
-            this.Window.Show();
-            this.Window.WindowState = WindowState.Normal;
-            this.Window.Activate();
+            Process p = Process.GetProcessesByName("notepad++").FirstOrDefault();
+            if (p != null)
+            {
+                /*
+                 * https://github.com/DevInDeep/SendKeys
+                 */
+
+                IntPtr h = p.MainWindowHandle;
+                if (SetForegroundWindow(h) > 0)
+                {
+                    try
+                    {
+                        Clipboard.Clear();
+                        Clipboard.SetText("Test");
+                        string strClip = Clipboard.GetText();
+                        System.Windows.Forms.SendKeys.Send("^{v}");
+                    }
+                    catch (Exception e)
+                    {
+                        Clipboard.SetText(e.Message);
+                    }
+                }
+            }
         }
 
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
@@ -72,5 +93,8 @@ namespace SysTrayNET.Core
 
             info.AddValue("Name", this.Name);
         }
+
+        [DllImport("User32.dll")]
+        static extern int SetForegroundWindow(IntPtr point);
     }
 }
