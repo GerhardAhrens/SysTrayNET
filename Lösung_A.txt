@@ -1,0 +1,810 @@
+using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Threading;
+
+class Program
+{
+    // --- Win32 API Deklarationen ---
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string? lpszClass, string? lpszWindow);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, string lParam);
+
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+    private const int SW_RESTORE = 9;
+    private const uint WM_SETTEXT = 0x000C;
+
+    // Tastatur-Flags
+    private const int KEYEVENTF_KEYUP = 0x0002;
+
+    static void Main()
+    {
+        Console.Write("Prozessname (z.B. notepad, winword, chrome): ");
+        string? processName = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(processName))
+        {
+            Console.WriteLine("❌ Kein Prozessname angegeben.");
+            return;
+        }
+
+        Console.Write("Einzufügender Text: ");
+        string? text = Console.ReadLine();
+
+        var processes = Process.GetProcessesByName(processName);
+        if (processes.Length == 0)
+        {
+            Console.WriteLine("❌ Kein Prozess mit diesem Namen gefunden.");
+            return;
+        }
+
+        var process = processes[0];
+        IntPtr hWnd = process.MainWindowHandle;
+
+        if (hWnd == IntPtr.Zero)
+        {
+            Console.WriteLine("❌ Kein Hauptfenster gefunden.");
+            return;
+        }
+
+        // Fenster in den Vordergrund bringen
+        ShowWindow(hWnd, SW_RESTORE);
+        SetForegroundWindow(hWnd);
+        Thread.Sleep(200);
+
+        // Versuche WM_SETTEXT auf das Edit-Control (z.B. Notepad)
+        IntPtr hEdit = FindWindowEx(hWnd, IntPtr.Zero, "Edit", null);
+        if (hEdit != IntPtr.Zero)
+        {
+            SendMessage(hEdit, WM_SETTEXT, IntPtr.Zero, text ?? "");
+            Console.WriteLine("✅ Text per WM_SETTEXT gesendet (z. B. Notepad).");
+        }
+        else
+        {
+            // Fallback: Tastatureingabe simulieren (ohne externe Lib)
+            Console.WriteLine("⚠️ Kein Edit-Control gefunden — sende Text per Tastatur...");
+
+            // Fenster ist bereits aktiv, jetzt Text tippen
+            foreach (char c in text ?? "")
+            {
+                SendChar(c);
+                Thread.Sleep(5); // leicht verzögern, wirkt stabiler
+            }
+
+            Console.WriteLine("✅ Text per Tastatureingabe gesendet.");
+        }
+    }
+
+    // --- Hilfsfunktion zum Simulieren von Tastatureingaben ---
+    static void SendChar(char c)
+    {
+        short vkey = VkKeyScan(c);
+
+        byte vk = (byte)(vkey & 0xff);
+        byte shift = (byte)((vkey >> 8) & 0xff);
+
+        if ((shift & 1) != 0) PressKey(0x10, true); // Shift drücken
+
+        PressKey(vk, true);
+        PressKey(vk, false);
+
+        if ((shift & 1) != 0) PressKey(0x10, false); // Shift loslassen
+    }
+
+    static void PressKey(byte keyCode, bool down)
+    {
+        keybd_event(keyCode, 0, (uint)(down ? 0 : KEYEVENTF_KEYUP), UIntPtr.Zero);
+    }
+
+    [DllImport("user32.dll")]
+    private static extern short VkKeyScan(char ch);
+}
+
+#################################################################################
+
+using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Threading;
+
+class Program
+{
+    // --- Win32 API Deklarationen ---
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string? lpszClass, string? lpszWindow);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, string lParam);
+
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+    [DllImport("user32.dll")]
+    private static extern short VkKeyScan(char ch);
+
+    private const int SW_RESTORE = 9;
+    private const uint WM_SETTEXT = 0x000C;
+    private const int KEYEVENTF_KEYUP = 0x0002;
+
+    static void Main()
+    {
+        Console.Write("Prozessname (z.B. notepad, winword, chrome): ");
+        string? processName = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(processName))
+        {
+            Console.WriteLine("❌ Kein Prozessname angegeben.");
+            return;
+        }
+
+        var processes = Process.GetProcessesByName(processName);
+        if (processes.Length == 0)
+        {
+            Console.WriteLine("❌ Kein Prozess mit diesem Namen gefunden.");
+            return;
+        }
+
+        // Zeige alle Fenster mit Titeln an
+        Console.WriteLine($"\nGefundene Fenster ({processes.Length}):");
+        for (int i = 0; i < processes.Length; i++)
+        {
+            var p = processes[i];
+            string title = string.IsNullOrWhiteSpace(p.MainWindowTitle)
+                ? "(kein Fenstertitel)"
+                : p.MainWindowTitle;
+
+            Console.WriteLine($"  [{i}] {title}");
+        }
+
+        // Wenn mehr als eins, Auswahl ermöglichen
+        int index = 0;
+        if (processes.Length > 1)
+        {
+            Console.Write("\nWähle das Ziel-Fenster (Index): ");
+            string? input = Console.ReadLine();
+            if (!int.TryParse(input, out index) || index < 0 || index >= processes.Length)
+            {
+                Console.WriteLine("❌ Ungültige Auswahl.");
+                return;
+            }
+        }
+
+        Console.Write("Einzufügender Text: ");
+        string? text = Console.ReadLine() ?? "";
+
+        var process = processes[index];
+        IntPtr hWnd = process.MainWindowHandle;
+
+        if (hWnd == IntPtr.Zero)
+        {
+            Console.WriteLine("❌ Kein Hauptfenster gefunden.");
+            return;
+        }
+
+        // Fenster in den Vordergrund bringen
+        ShowWindow(hWnd, SW_RESTORE);
+        SetForegroundWindow(hWnd);
+        Thread.Sleep(300);
+
+        // Versuche WM_SETTEXT auf Edit-Control
+        IntPtr hEdit = FindWindowEx(hWnd, IntPtr.Zero, "Edit", null);
+        if (hEdit != IntPtr.Zero)
+        {
+            SendMessage(hEdit, WM_SETTEXT, IntPtr.Zero, text);
+            Console.WriteLine("✅ Text direkt per WM_SETTEXT gesendet (z. B. Notepad).");
+        }
+        else
+        {
+            Console.WriteLine("⚠️ Kein Edit-Control gefunden — sende Text per Tastatur...");
+            foreach (char c in text)
+            {
+                SendChar(c);
+                Thread.Sleep(5);
+            }
+            Console.WriteLine("✅ Text per Tastatureingabe gesendet.");
+        }
+    }
+
+    // --- Hilfsfunktionen ---
+    static void SendChar(char c)
+    {
+        short vkey = VkKeyScan(c);
+        if (vkey == -1)
+        {
+            // Unbekanntes Zeichen – überspringen
+            return;
+        }
+
+        byte vk = (byte)(vkey & 0xff);
+        byte shift = (byte)((vkey >> 8) & 0xff);
+
+        if ((shift & 1) != 0) PressKey(0x10, true); // Shift drücken
+        PressKey(vk, true);
+        PressKey(vk, false);
+        if ((shift & 1) != 0) PressKey(0x10, false); // Shift loslassen
+    }
+
+    static void PressKey(byte keyCode, bool down)
+    {
+        keybd_event(keyCode, 0, (uint)(down ? 0 : KEYEVENTF_KEYUP), UIntPtr.Zero);
+    }
+}
+#######################################################################################
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading;
+
+class Program
+{
+    // --- Win32 APIs ---
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, string lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr SendMessageW(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+    [DllImport("user32.dll")]
+    private static extern short VkKeyScan(char ch);
+
+    private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    // --- Konstanten ---
+    private const int SW_RESTORE = 9;
+    private const uint WM_SETTEXT = 0x000C;
+    private const uint WM_UNICHAR = 0x0109;
+    private const int KEYEVENTF_KEYUP = 0x0002;
+    private const uint UNICODE_NOCHAR = 0xFFFF;
+
+    static void Main()
+    {
+        Console.Write("Prozessname (z.B. notepad, winword, chrome): ");
+        string? processName = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(processName))
+        {
+            Console.WriteLine("❌ Kein Prozessname angegeben.");
+            return;
+        }
+
+        var processes = Process.GetProcessesByName(processName);
+        if (processes.Length == 0)
+        {
+            Console.WriteLine("❌ Kein Prozess mit diesem Namen gefunden.");
+            return;
+        }
+
+        Console.WriteLine($"\nGefundene Fenster ({processes.Length}):");
+        for (int i = 0; i < processes.Length; i++)
+        {
+            string title = string.IsNullOrWhiteSpace(processes[i].MainWindowTitle)
+                ? "(kein Fenstertitel)"
+                : processes[i].MainWindowTitle;
+            Console.WriteLine($"  [{i}] {title}");
+        }
+
+        int index = 0;
+        if (processes.Length > 1)
+        {
+            Console.Write("\nWähle das Ziel-Fenster (Index): ");
+            if (!int.TryParse(Console.ReadLine(), out index) || index < 0 || index >= processes.Length)
+            {
+                Console.WriteLine("❌ Ungültige Auswahl.");
+                return;
+            }
+        }
+
+        Console.Write("Einzufügender Text: ");
+        string? text = Console.ReadLine() ?? "";
+
+        var process = processes[index];
+        IntPtr hWnd = process.MainWindowHandle;
+        if (hWnd == IntPtr.Zero)
+        {
+            Console.WriteLine("❌ Kein Hauptfenster gefunden.");
+            return;
+        }
+
+        ShowWindow(hWnd, SW_RESTORE);
+        SetForegroundWindow(hWnd);
+        Thread.Sleep(300);
+
+        // Alle Child-Handles sammeln
+        var childWindows = GetAllChildWindows(hWnd);
+        IntPtr target = IntPtr.Zero;
+
+        // Suche nach typischen Textfenstern
+        foreach (var child in childWindows)
+        {
+            string cls = GetWindowClass(child);
+            if (cls.Contains("Edit", StringComparison.OrdinalIgnoreCase)
+             || cls.Contains("RICHEDIT", StringComparison.OrdinalIgnoreCase)
+             || cls.Contains("Chrome_RenderWidgetHostHWND", StringComparison.OrdinalIgnoreCase))
+            {
+                target = child;
+                break;
+            }
+        }
+
+        if (target != IntPtr.Zero)
+        {
+            // Direkt senden
+            SendMessage(target, WM_SETTEXT, IntPtr.Zero, text);
+            Console.WriteLine($"✅ Text direkt an Control ({GetWindowClass(target)}) gesendet.");
+        }
+        else
+        {
+            Console.WriteLine("⚠️ Kein passendes Text-Control gefunden — sende Text als Unicode-Eingabe...");
+            SendUnicodeText(text);
+            Console.WriteLine("✅ Text als Unicode-Tastatureingabe gesendet.");
+        }
+    }
+
+    // --- Hilfsfunktionen ---
+
+    static List<IntPtr> GetAllChildWindows(IntPtr parent)
+    {
+        var result = new List<IntPtr>();
+        EnumChildWindows(parent, (hWnd, lParam) =>
+        {
+            result.Add(hWnd);
+            return true;
+        }, IntPtr.Zero);
+        return result;
+    }
+
+    static string GetWindowClass(IntPtr hWnd)
+    {
+        StringBuilder sb = new(256);
+        GetClassName(hWnd, sb, sb.Capacity);
+        return sb.ToString();
+    }
+
+    static void SendUnicodeText(string text)
+    {
+        foreach (char c in text)
+        {
+            SendMessageW(GetForegroundWindow(), WM_UNICHAR, (IntPtr)c, IntPtr.Zero);
+        }
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    // Fallback für normale Tastatureingabe (falls Unicode fehlschlägt)
+    static void SendChar(char c)
+    {
+        short vkey = VkKeyScan(c);
+        if (vkey == -1) return;
+
+        byte vk = (byte)(vkey & 0xff);
+        byte shift = (byte)((vkey >> 8) & 0xff);
+
+        if ((shift & 1) != 0) PressKey(0x10, true); // Shift drücken
+        PressKey(vk, true);
+        PressKey(vk, false);
+        if ((shift & 1) != 0) PressKey(0x10, false); // Shift loslassen
+    }
+
+    static void PressKey(byte keyCode, bool down)
+    {
+        keybd_event(keyCode, 0, (uint)(down ? 0 : KEYEVENTF_KEYUP), UIntPtr.Zero);
+    }
+}
+#####################################################################################################
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Text;
+
+class WindowInspector
+{
+    // --- Win32 API Deklarationen ---
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpWindowText, int nMaxCount);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
+
+    private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    static void Main()
+    {
+        Console.Write("Prozessname (z.B. notepad, winword, chrome): ");
+        string? processName = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(processName))
+        {
+            Console.WriteLine("❌ Kein Prozessname angegeben.");
+            return;
+        }
+
+        var processes = Process.GetProcessesByName(processName);
+        if (processes.Length == 0)
+        {
+            Console.WriteLine("❌ Kein Prozess mit diesem Namen gefunden.");
+            return;
+        }
+
+        Console.WriteLine($"\nGefundene Fenster ({processes.Length}):");
+        for (int i = 0; i < processes.Length; i++)
+        {
+            var title = string.IsNullOrWhiteSpace(processes[i].MainWindowTitle)
+                ? "(kein Fenstertitel)"
+                : processes[i].MainWindowTitle;
+            Console.WriteLine($"  [{i}] {title}");
+        }
+
+        int index = 0;
+        if (processes.Length > 1)
+        {
+            Console.Write("\nWähle das Ziel-Fenster (Index): ");
+            if (!int.TryParse(Console.ReadLine(), out index) || index < 0 || index >= processes.Length)
+            {
+                Console.WriteLine("❌ Ungültige Auswahl.");
+                return;
+            }
+        }
+
+        var process = processes[index];
+        IntPtr mainWindow = process.MainWindowHandle;
+
+        if (mainWindow == IntPtr.Zero)
+        {
+            Console.WriteLine("❌ Kein Hauptfenster gefunden.");
+            return;
+        }
+
+        Console.WriteLine($"\n🔍 Fenster-Struktur von '{process.ProcessName}' ({process.Id}):\n");
+
+        // Hauptfenster zuerst
+        PrintWindowInfo(mainWindow, 0);
+
+        // Rekursiv alle Child-Fenster auflisten
+        PrintChildWindows(mainWindow, 1);
+
+        Console.WriteLine("\n✅ Fertig.");
+    }
+
+    static void PrintChildWindows(IntPtr parent, int level)
+    {
+        EnumChildWindows(parent, (hWnd, lParam) =>
+        {
+            PrintWindowInfo(hWnd, level);
+            // Rekursiv weitermachen
+            PrintChildWindows(hWnd, level + 1);
+            return true;
+        }, IntPtr.Zero);
+    }
+
+    static void PrintWindowInfo(IntPtr hWnd, int indent)
+    {
+        string indentStr = new string(' ', indent * 2);
+        string cls = GetClassNameOf(hWnd);
+        string text = GetWindowTextOf(hWnd);
+        bool visible = IsWindowVisible(hWnd);
+
+        Console.WriteLine($"{indentStr}- HWND: 0x{hWnd.ToInt64():X8} | Class: {cls,-25} | Visible: {visible,-5} | Text: \"{text}\"");
+    }
+
+    static string GetClassNameOf(IntPtr hWnd)
+    {
+        StringBuilder sb = new(256);
+        GetClassName(hWnd, sb, sb.Capacity);
+        return sb.ToString();
+    }
+
+    static string GetWindowTextOf(IntPtr hWnd)
+    {
+        StringBuilder sb = new(512);
+        GetWindowText(hWnd, sb, sb.Capacity);
+        return sb.ToString();
+    }
+}
+###################################################################################################
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading;
+
+class ClickWindowInspector
+{
+    // --- Win32 APIs ---
+    [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out POINT lpPoint);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr WindowFromPoint(POINT Point);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpWindowText, int nMaxCount);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
+
+    private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    // Tastenkombinationen abfragen
+    [DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int vKey);
+
+    private const int VK_CONTROL = 0x11;
+    private const int VK_SHIFT = 0x10;
+    private const int VK_F1 = 0x70;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
+    static void Main()
+    {
+        Console.WriteLine("🪟 Fenster-Inspektor (per Klick)");
+        Console.WriteLine("----------------------------------");
+        Console.WriteLine("👉 Halte STRG + SHIFT gedrückt und drücke F1,");
+        Console.WriteLine("   während du mit der Maus über einem Fenster bist.");
+        Console.WriteLine("   Drücke ESC, um zu beenden.\n");
+
+        while (true)
+        {
+            Thread.Sleep(50);
+
+            if ((GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0 &&
+                (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0 &&
+                (GetAsyncKeyState(VK_F1) & 0x8000) != 0)
+            {
+                GetCursorPos(out POINT pt);
+                IntPtr hWnd = WindowFromPoint(pt);
+
+                Console.Clear();
+                Console.WriteLine($"📍 Fenster unter Mauszeiger @ ({pt.X},{pt.Y})");
+                PrintWindowInfo(hWnd, 0);
+                Console.WriteLine("\nChild-Fenster:");
+                PrintChildWindows(hWnd, 1);
+                Console.WriteLine("\n(Halte STRG+SHIFT und drücke F1 erneut für ein anderes Fenster)\n");
+            }
+
+            if ((GetAsyncKeyState(0x1B) & 0x8000) != 0) // ESC
+            {
+                Console.WriteLine("👋 Beendet.");
+                break;
+            }
+        }
+    }
+
+    // --- Fenster-Informationen anzeigen ---
+    static void PrintWindowInfo(IntPtr hWnd, int indent)
+    {
+        string indentStr = new string(' ', indent * 2);
+        string cls = GetClassNameOf(hWnd);
+        string text = GetWindowTextOf(hWnd);
+        bool visible = IsWindowVisible(hWnd);
+
+        Console.WriteLine($"{indentStr}- HWND: 0x{hWnd.ToInt64():X8} | Class: {cls,-25} | Visible: {visible,-5} | Text: \"{text}\"");
+    }
+
+    static void PrintChildWindows(IntPtr parent, int level)
+    {
+        EnumChildWindows(parent, (hWnd, lParam) =>
+        {
+            PrintWindowInfo(hWnd, level);
+            return true;
+        }, IntPtr.Zero);
+    }
+
+    static string GetClassNameOf(IntPtr hWnd)
+    {
+        StringBuilder sb = new(256);
+        GetClassName(hWnd, sb, sb.Capacity);
+        return sb.ToString();
+    }
+
+    static string GetWindowTextOf(IntPtr hWnd)
+    {
+        StringBuilder sb = new(512);
+        GetWindowText(hWnd, sb, sb.Capacity);
+        return sb.ToString();
+    }
+}
+############################################################################################
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading;
+
+class InteractiveWindowSender
+{
+    // --- Win32 APIs ---
+    [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out POINT lpPoint);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr WindowFromPoint(POINT Point);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpWindowText, int nMaxCount);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, string lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr SendMessageW(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int vKey);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    // Tastenkonstanten
+    private const int VK_CONTROL = 0x11;
+    private const int VK_SHIFT = 0x10;
+    private const int VK_F1 = 0x70;
+    private const int VK_F2 = 0x71;
+    private const int VK_ESC = 0x1B;
+
+    // Nachrichten
+    private const uint WM_SETTEXT = 0x000C;
+    private const uint WM_UNICHAR = 0x0109;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT { public int X; public int Y; }
+
+    private static IntPtr selectedWindow = IntPtr.Zero;
+
+    static void Main()
+    {
+        Console.WriteLine("🪟 Fenster-Text-Sender (.NET 8, ohne externe Bibliotheken)");
+        Console.WriteLine("---------------------------------------------------------");
+        Console.WriteLine("👉 STRG+SHIFT+F1 = Fenster unter Mauszeiger auswählen");
+        Console.WriteLine("👉 STRG+SHIFT+F2 = Text in das gewählte Fenster einfügen");
+        Console.WriteLine("👉 ESC = Programm beenden\n");
+
+        while (true)
+        {
+            Thread.Sleep(50);
+
+            // --- Fenster auswählen ---
+            if (IsHotkeyPressed(VK_CONTROL, VK_SHIFT, VK_F1))
+            {
+                GetCursorPos(out POINT pt);
+                selectedWindow = WindowFromPoint(pt);
+
+                Console.Clear();
+                Console.WriteLine($"📍 Fenster unter Mauszeiger @ ({pt.X},{pt.Y})");
+                PrintWindowInfo(selectedWindow, 0);
+
+                Console.WriteLine("\nChild-Fenster:");
+                EnumChildWindows(selectedWindow, (hWnd, lParam) =>
+                {
+                    PrintWindowInfo(hWnd, 1);
+                    return true;
+                }, IntPtr.Zero);
+
+                Console.WriteLine("\n✅ Fenster ausgewählt!");
+                Console.WriteLine("Drücke STRG+SHIFT+F2, um Text zu senden.\n");
+            }
+
+            // --- Text senden ---
+            if (selectedWindow != IntPtr.Zero && IsHotkeyPressed(VK_CONTROL, VK_SHIFT, VK_F2))
+            {
+                Console.Write("\n💬 Text zum Einfügen: ");
+                string? text = Console.ReadLine() ?? "";
+
+                SetForegroundWindow(selectedWindow);
+                Thread.Sleep(150);
+
+                // Versuche direkt WM_SETTEXT
+                if (SendMessage(selectedWindow, WM_SETTEXT, IntPtr.Zero, text) != IntPtr.Zero)
+                {
+                    Console.WriteLine("✅ Text direkt per WM_SETTEXT gesendet.");
+                }
+                else
+                {
+                    Console.WriteLine("⚠️ WM_SETTEXT fehlgeschlagen — sende per Unicode...");
+                    foreach (char c in text)
+                        SendMessageW(selectedWindow, WM_UNICHAR, (IntPtr)c, IntPtr.Zero);
+                    Console.WriteLine("✅ Text als Unicode-Tastatureingabe gesendet.");
+                }
+
+                Console.WriteLine("\nFenster bleibt ausgewählt. Du kannst STRG+SHIFT+F2 erneut drücken.");
+            }
+
+            // --- Beenden ---
+            if ((GetAsyncKeyState(VK_ESC) & 0x8000) != 0)
+            {
+                Console.WriteLine("\n👋 Beendet.");
+                break;
+            }
+        }
+    }
+
+    // Prüft Hotkey-Kombination
+    static bool IsHotkeyPressed(int key1, int key2, int key3) =>
+        (GetAsyncKeyState(key1) & 0x8000) != 0 &&
+        (GetAsyncKeyState(key2) & 0x8000) != 0 &&
+        (GetAsyncKeyState(key3) & 0x8000) != 0;
+
+    // Fensterinfos ausgeben
+    static void PrintWindowInfo(IntPtr hWnd, int indent)
+    {
+        string indentStr = new string(' ', indent * 2);
+        string cls = GetClassNameOf(hWnd);
+        string txt = GetWindowTextOf(hWnd);
+        bool visible = IsWindowVisible(hWnd);
+
+        Console.WriteLine($"{indentStr}- HWND: 0x{hWnd.ToInt64():X8} | Class: {cls,-25} | Visible: {visible,-5} | Text: \"{txt}\"");
+    }
+
+    static string GetClassNameOf(IntPtr hWnd)
+    {
+        StringBuilder sb = new(256);
+        GetClassName(hWnd, sb, sb.Capacity);
+        return sb.ToString();
+    }
+
+    static string GetWindowTextOf(IntPtr hWnd)
+    {
+        StringBuilder sb = new(512);
+        GetWindowText(hWnd, sb, sb.Capacity);
+        return sb.ToString();
+    }
+}
+############################################################################################

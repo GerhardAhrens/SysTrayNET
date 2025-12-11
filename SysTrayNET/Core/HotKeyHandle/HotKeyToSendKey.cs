@@ -24,8 +24,6 @@ namespace SysTrayNET.Core
     using System.Windows;
     using System.Windows.Input;
 
-    using static System.Runtime.CompilerServices.RuntimeHelpers;
-
     [Serializable]
     public class HotKeyToSendKey : HotKey
     {
@@ -76,8 +74,8 @@ namespace SysTrayNET.Core
                     {
                         Clipboard.Clear();
                         Clipboard.SetText("Test");
-                        string strClip = Clipboard.GetText();
-                        System.Windows.Forms.SendKeys.Send("^{v}");
+                        System.Windows.Forms.SendKeys.SendWait("^{v}");
+                        System.Windows.Forms.SendKeys.Flush();
                     }
                     catch (Exception e)
                     {
