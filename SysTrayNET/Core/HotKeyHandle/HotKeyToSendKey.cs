@@ -21,8 +21,10 @@ namespace SysTrayNET.Core
     using System.Diagnostics;
     using System.Runtime.InteropServices;
     using System.Runtime.Serialization;
+    using System.Text;
     using System.Windows;
     using System.Windows.Input;
+    using System.Windows.Automation;
 
     [Serializable]
     public class HotKeyToSendKey : HotKey
@@ -60,29 +62,45 @@ namespace SysTrayNET.Core
         {
             base.OnHotKeyPress();
 
-            Process p = Process.GetProcessesByName("notepad++").FirstOrDefault();
-            if (p != null)
-            {
-                /*
-                 * https://github.com/DevInDeep/SendKeys
-                 */
+            string textToInsert = "Hallo von UI Automation!";
+            Clipboard.SetText(textToInsert);
 
-                IntPtr h = p.MainWindowHandle;
-                if (SetForegroundWindow(h) > 0)
-                {
-                    try
-                    {
-                        Clipboard.Clear();
-                        Clipboard.SetText("Test");
-                        System.Windows.Forms.SendKeys.SendWait("^{v}");
-                        System.Windows.Forms.SendKeys.Flush();
-                    }
-                    catch (Exception e)
-                    {
-                        Clipboard.SetText(e.Message);
-                    }
-                }
+            var processes = Process.GetProcessesByName("winword").FirstOrDefault();
+            if (processes == null)
+            {
+                return;
             }
+
+            _ = SetForegroundWindow(processes.MainWindowHandle);
+
+            Thread.Sleep(100);
+            //Strg+V über SendInput simulieren
+            SendCtrlV();
+            // Optional: kurze Pause zwischen Fenstern
+            Thread.Sleep(200);
+
+            /*
+            var root = AutomationElement.FromHandle(processes.MainWindowHandle);
+            var edit = root.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Document));
+            if (edit != null)
+            {
+                var pattern = edit.GetCurrentPattern(ValuePattern.Pattern) as ValuePattern;
+                if (pattern != null)
+                {
+                    _ = SetForegroundWindow(processes.MainWindowHandle);
+
+                    Thread.Sleep(100);
+                    //Strg+V über SendInput simulieren
+                    SendCtrlV();
+                    // Optional: kurze Pause zwischen Fenstern
+                    Thread.Sleep(200);
+
+                    //var vp = (ValuePattern)pattern;
+                    //vp.SetValue(textToInsert); // Text wird direkt gesetzt
+                }
+
+            }
+            */
         }
 
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
@@ -92,7 +110,75 @@ namespace SysTrayNET.Core
             info.AddValue("Name", this.Name);
         }
 
-        [DllImport("User32.dll")]
-        static extern int SetForegroundWindow(IntPtr point);
+        static void SendCtrlV()
+        {
+            // Ctrl down
+            SendKey(VK_CONTROL, false);
+            // V down
+            SendKey(VK_V, false);
+            // V up
+            SendKey(VK_V, true);
+            // Ctrl up
+            SendKey(VK_CONTROL, true);
+        }
+
+        static void SendKey(ushort vk, bool keyUp)
+        {
+            INPUT[] inputs = new INPUT[]
+            {
+            new INPUT
+            {
+                type = INPUT_KEYBOARD,
+                u = new InputUnion
+                {
+                    ki = new KEYBDINPUT
+                    {
+                        wVk = vk,
+                        wScan = 0,
+                        dwFlags = keyUp ? KEYEVENTF_KEYUP : 0,
+                        time = 0,
+                        dwExtraInfo = IntPtr.Zero
+                    }
+                }
+            }
+            };
+
+            SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT)));
+        }
+
+        // --- Win32 API ---
+        [DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct INPUT
+        {
+            public uint type;
+            public InputUnion u;
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        struct InputUnion
+        {
+            [FieldOffset(0)] public KEYBDINPUT ki;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct KEYBDINPUT
+        {
+            public ushort wVk;
+            public ushort wScan;
+            public uint dwFlags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        const int INPUT_KEYBOARD = 1;
+        const uint KEYEVENTF_KEYUP = 0x0002;
+        const ushort VK_CONTROL = 0x11;
+        const ushort VK_V = 0x56;
     }
 }
